@@ -25,7 +25,7 @@ public class MoviesHandler extends BaseHttpHandler {
         this.moviesStore = moviesStore;
         gson = new GsonBuilder().disableHtmlEscaping().create();
     }
-    
+
     @Override
     public void handle(HttpExchange ex) throws IOException {
         String method = ex.getRequestMethod();
