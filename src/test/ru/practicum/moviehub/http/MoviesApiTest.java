@@ -169,7 +169,7 @@ public class MoviesApiTest {
     @Test
     void returnErrorWithYearMore()  throws Exception {
         int currentYearPlusTwo = Year.now().getValue() + 2;
-        String movieJson = "{\"title\":\"Интерстеллар\",\"year\":"+ currentYearPlusTwo +"}";
+        String movieJson = "{\"title\":\"Интерстеллар\",\"year\":" + currentYearPlusTwo + "}";
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(BASE + "/movies"))
                 .header("Content-Type", "application/json; charset=UTF-8")
