@@ -1,7 +1,5 @@
 package ru.practicum.moviehub.http;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.sun.net.httpserver.HttpExchange;
 import ru.practicum.moviehub.model.Movie;
@@ -9,21 +7,24 @@ import ru.practicum.moviehub.store.MoviesStore;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static ru.practicum.moviehub.api.ErrorResponse.*;
 
 public class MoviesHandler extends BaseHttpHandler {
     private final MoviesStore moviesStore;
-    private final Gson gson;
+    private static final int MAX_TITLE_LENGTH = 100;
+    private static final int MIN_RELEASE_YEAR = 1888;
 
     public MoviesHandler(MoviesStore moviesStore) {
+        super();
         this.moviesStore = moviesStore;
-        gson = new GsonBuilder().disableHtmlEscaping().create();
     }
 
     @Override
@@ -32,48 +33,36 @@ public class MoviesHandler extends BaseHttpHandler {
         String path = ex.getRequestURI().getPath();
         try {
             if (method.equalsIgnoreCase("GET")) {
-                handleGet(ex, path);
+                handleGet(ex);
             } else if (method.equalsIgnoreCase("POST")) {
                 handlePost(ex, path);
-            } else if (method.equalsIgnoreCase("DELETE")) {
-                if (path.matches("/movies/\\d+")) {
-                    handleDelete(ex, path);
-                } else {
-                    sendJson(ex, 400, gson.toJson(messageError("Некорректный ID")));
-                }
             } else {
                 sendUnsupportedMethod(ex);
             }
         } catch (Exception e) {
-            sendJson(ex,500, gson.toJson(messageError("Внутренняя ошибка сервера")));
+            sendJson(ex, 500, gson.toJson(messageError("Внутренняя ошибка сервера")));
         }
     }
 
-    private void handleGet(HttpExchange ex, String path) throws IOException {
-        if (path.equals("/movies")) {
-            String query = ex.getRequestURI().getQuery();
-            if (query == null || query.isBlank()) {
-                List<Movie> movies = moviesStore.findAll();
-                if (movies.isEmpty()) {
-                    sendJson(ex, 200, "[]");
-                } else {
-                    String json = gson.toJson(movies);
-                    sendJson(ex, 200, json);
-                }
-            } else  {
-                filterByYear(ex, query);
+    private void handleGet(HttpExchange ex) throws IOException {
+        String query = ex.getRequestURI().getQuery();
+        if (query == null || query.isBlank()) {
+            List<Movie> movies = moviesStore.findAll();
+            if (movies.isEmpty()) {
+                sendJson(ex, 200, "[]");
+            } else {
+                String json = gson.toJson(movies);
+                sendJson(ex, 200, json);
             }
-        } else if (path.matches("/movies/\\d+")) {
-            handleGetById(ex, path);
-        } else if (path.startsWith("/movies/")) {
-            sendJson(ex, 400, gson.toJson(messageError("Некорректный ID")));
+        } else {
+            filterByYear(ex, query);
         }
     }
 
     private void handlePost(HttpExchange ex, String path) throws IOException {
         if (path.equals("/movies")) {
             String contentType = ex.getRequestHeaders().getFirst("Content-Type");
-            if (contentType == null || !contentType.equals("application/json; charset=UTF-8")) {
+            if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("application/json")) {
                 sendUnsupportedMediaType(ex);
                 return;
             }
@@ -98,32 +87,6 @@ public class MoviesHandler extends BaseHttpHandler {
             }
             Movie savedMovie = moviesStore.save(movie);
             sendJson(ex, 201, gson.toJson(savedMovie));
-        }
-    }
-
-    private void handleGetById(HttpExchange ex, String path) throws IOException {
-        String idPart = path.substring("/movies/".length());
-        long id = Long.parseLong(idPart);
-
-        Movie movie = moviesStore.findById(id);
-
-        if (movie != null) {
-            sendJson(ex, 200, gson.toJson(movie));
-        } else {
-            sendJson(ex, 404, gson.toJson(messageError("Фильм не найден")));
-        }
-    }
-
-    private void handleDelete(HttpExchange ex, String path) throws IOException {
-        String idPart = path.substring("/movies/".length());
-        long id = Long.parseLong(idPart);
-
-        boolean removed = moviesStore.remove(id);
-
-        if (removed) {
-            sendNoContent(ex);
-        } else {
-            sendNotFound(ex);
         }
     }
 
@@ -155,16 +118,16 @@ public class MoviesHandler extends BaseHttpHandler {
 
     private List<String> validateMovie(Movie movie) {
         List<String> errors = new ArrayList<>();
+        int maxReleaseYear = Year.now().getValue() + 1;
 
         if (movie.getTitle() == null || movie.getTitle().trim().isEmpty()) {
             errors.add("название не должно быть пустым");
-        } else if (movie.getTitle().length() > 100) {
+        } else if (movie.getTitle().length() > MAX_TITLE_LENGTH) {
             errors.add("название не должно быть длиннее 100 символов");
         }
 
-        int currentYear = Year.now().getValue();
-        if (movie.getYear() < 1888 || movie.getYear() > currentYear + 1) {
-            errors.add("год должен быть между 1888 и 2026");
+        if (movie.getYear() < MIN_RELEASE_YEAR || movie.getYear() > maxReleaseYear) {
+            errors.add(String.format("год должен быть между %d и %d", MIN_RELEASE_YEAR, maxReleaseYear));
         }
         return errors;
     }
@@ -173,8 +136,14 @@ public class MoviesHandler extends BaseHttpHandler {
         String[] params = query.split("&");
         for (String param : params) {
             String[] pair = param.split("=");
-            if (pair.length == 2 && pair[0].equals("year")) {
-                return Integer.parseInt(pair[1]);
+            try {
+                String key = URLDecoder.decode(pair[0], StandardCharsets.UTF_8);
+                if (pair.length == 2 && key.equals("year")) {
+                    String value = URLDecoder.decode(pair[1], StandardCharsets.UTF_8);
+                    return Integer.parseInt(value);
+                }
+            } catch (IllegalArgumentException e) {
+                return null;
             }
         }
         return null;

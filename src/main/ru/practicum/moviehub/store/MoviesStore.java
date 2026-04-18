@@ -2,10 +2,7 @@ package ru.practicum.moviehub.store;
 
 import ru.practicum.moviehub.model.Movie;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class MoviesStore {
     private final Map<Long, Movie> movies = new HashMap<>();
@@ -24,8 +21,8 @@ public class MoviesStore {
         return movie;
     }
 
-    public Movie findById(long id) {
-        return movies.get(id);
+    public Optional<Movie> findById(long id) {
+        return Optional.ofNullable(movies.get(id));
     }
 
     public boolean remove(long id) {

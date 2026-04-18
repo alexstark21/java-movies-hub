@@ -118,7 +118,7 @@ public class MoviesApiTest {
     }
 
     @Test
-    void returnErrorWithEmptyTitle()  throws Exception {
+    void returnErrorWithEmptyTitle() throws Exception {
         String movieJson = "{\"title\":\"\",\"year\":2014}";
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(BASE + "/movies"))
@@ -134,7 +134,7 @@ public class MoviesApiTest {
     }
 
     @Test
-    void returnErrorWithTitleMoreOneHundredSize()  throws Exception {
+    void returnErrorWithTitleMoreOneHundredSize() throws Exception {
         String x = "x";
         String longTitle = x.repeat(101);
         String movieJson = "{\"title\":\"" + longTitle + "\",\"year\":2014}";
@@ -152,7 +152,8 @@ public class MoviesApiTest {
     }
 
     @Test
-    void returnErrorWithYearLess()  throws Exception {
+    void returnErrorWithYearLess() throws Exception {
+        int maxReleaseYear = Year.now().getValue() + 1;
         String movieJson = "{\"title\":\"Интерстеллар\",\"year\":1887}";
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(BASE + "/movies"))
@@ -163,13 +164,14 @@ public class MoviesApiTest {
         HttpResponse<String> resp =
                 client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
-        assertTrue(resp.body().contains("год должен быть между 1888 и 2026"));
+        assertTrue(resp.body().contains("год должен быть между 1888 и " + maxReleaseYear));
     }
 
     @Test
-    void returnErrorWithYearMore()  throws Exception {
-        int currentYearPlusTwo = Year.now().getValue() + 2;
-        String movieJson = "{\"title\":\"Интерстеллар\",\"year\":" + currentYearPlusTwo + "}";
+    void returnErrorWithYearMore() throws Exception {
+        int maxReleaseYear = Year.now().getValue() + 1;
+        int maxReleaseYearPlusOne = maxReleaseYear + 1;
+        String movieJson = "{\"title\":\"Интерстеллар\",\"year\":" + maxReleaseYearPlusOne + "}";
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(BASE + "/movies"))
                 .header("Content-Type", "application/json; charset=UTF-8")
@@ -179,11 +181,11 @@ public class MoviesApiTest {
         HttpResponse<String> resp =
                 client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
-        assertTrue(resp.body().contains("год должен быть между 1888 и 2026"));
+        assertTrue(resp.body().contains("год должен быть между 1888 и " + maxReleaseYear));
     }
 
     @Test
-    void returnErrorWithWrongContentType()  throws Exception {
+    void returnErrorWithWrongContentType() throws Exception {
         String movieJson = "{\"title\":\"Интерстеллар\",\"year\":2014}";
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(BASE + "/movies"))
